@@ -1,12 +1,16 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
-import { url } from 'inspector';
+// import { url } from 'inspector';
 import * as vscode from 'vscode';
+
+import ComponentTemplate from './template/component';
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 
 const OpenCommandName = 'duvie-utils.open';
+
+const TemplateCommand = 'duvie-utils.template';
 
 export function activate(context: vscode.ExtensionContext) {
 
@@ -31,49 +35,105 @@ export function activate(context: vscode.ExtensionContext) {
 
 }
 
+type TOptions = 'component' | 'serivce' | 'module' | 'other';
 
-async function register(context : vscode.ExtensionContext){
-	let OpenCommand = vscode.commands.registerCommand(OpenCommandName, async () => {
-		var file_name = await vscode.window.showInputBox(
-			{ prompt: 'Điền tên file định tạo', placeHolder: 'ví dụ : lead.insert.tsx', value: '' }
-		);
+const options_list: TOptions[] = ["component", "module", "serivce", "other"];
 
-		var folder = await vscode.window.showInputBox(
-			{ prompt: 'Điền tên folder định tạo', placeHolder: 'ví dụ : lead/detail', value: '' }
-		);
-
-		if(file_name == '' || (file_name == '' && folder == ''))
+async function GetPath() {
+	return await vscode.window.showInputBox(
 		{
-			vscode.window.showErrorMessage('Empty');
-			return;
+			prompt: "Full path ??",
+			placeHolder: "component/index.tsx",
+			value: ''
 		}
+	)
+}
 
-		let path = folder == '' ? file_name : folder + "\\" + file_name;
+async function CreateFile(path: string, templatePath : string) {
+	const wsedit = new vscode.WorkspaceEdit();
 
-		console.log(vscode.workspace.getConfiguration)
+	if (wsedit.has(vscode.Uri.parse(path!))) {
+		vscode.window.showInformationMessage('File exists');
+		return false;
+	} else {
 
-		console.log(vscode.workspace.workspaceFile);
+		const wsPath = vscode.workspace.workspaceFolders![0].uri.fsPath; // gets the path of the first workspace folder
+		const filePath = vscode.Uri.file(wsPath + path);
 
-		const wsedit = new vscode.WorkspaceEdit();
+		wsedit.createFile(filePath, { ignoreIfExists: true });
+		wsedit.insert(filePath, new vscode.Position(0, 0), ComponentTemplate);
+		vscode.workspace.applyEdit(wsedit);
+	}
+}
 
-		if(wsedit.has(vscode.Uri.parse(path!))){
-			vscode.window.showInformationMessage('File exists');
-		}else{
+async function register(context: vscode.ExtensionContext) {
+	let OpenCommand = vscode.commands.registerCommand(OpenCommandName, async () => {
+		// var file_name = await vscode.window.showInputBox(
+		// 	{ prompt: 'Điền tên file định tạo', placeHolder: 'ví dụ : lead.insert.tsx', value: '' }
+		// );
 
-			let file_uri = vscode.Uri.parse(path!);
+		// var folder = await vscode.window.showInputBox(
+		// 	{ prompt: 'Điền tên folder định tạo', placeHolder: 'ví dụ : lead/detail', value: '' }
+		// );
 
-			vscode.window.showInformationMessage('File not exists');
+		var choose = await vscode.window.showQuickPick(options_list).then(async (vl: any) => {
 
-			const wsPath = vscode.workspace.workspaceFolders![0].uri.fsPath; // gets the path of the first workspace folder
-			const filePath = vscode.Uri.file(wsPath + '/hello/world.md');				
+			var path = await GetPath();
 
-			// wsedit.createFile(file_uri);
-			// wsedit.insert(file_uri, new vscode.Position(0,0), "hehehehehe");
-			wsedit.createFile(filePath, { ignoreIfExists: true });
-			wsedit.insert(filePath, new vscode.Position(0,0), "fuck you bitch");
-			vscode.workspace.applyEdit(wsedit);
-			
-		}
+			/** @component */
+			if (vl == options_list[0]) {
+				CreateFile(path!,"a");
+			}
+
+			/** @serivce */
+			if (vl == options_list[1]) {
+
+			}
+
+			/** @module */
+			if (vl == options_list[2]) {
+
+			}
+
+			/** @other */
+			if (vl == options_list[3]) {
+
+			}
+		});
+
+		return;
+
+		// if (file_name == '' || (file_name == '' && folder == '')) {
+		// 	vscode.window.showErrorMessage('Empty');
+		// 	return;
+		// }
+
+		// let path = folder == '' ? file_name : folder + "\\" + file_name;
+
+		// console.log(vscode.workspace.getConfiguration)
+
+		// console.log(vscode.workspace.workspaceFile);
+
+		// const wsedit = new vscode.WorkspaceEdit();
+
+		// if (wsedit.has(vscode.Uri.parse(path!))) {
+		// 	vscode.window.showInformationMessage('File exists');
+		// } else {
+
+		// 	let file_uri = vscode.Uri.parse(path!);
+
+		// 	vscode.window.showInformationMessage('File not exists');
+
+		// 	const wsPath = vscode.workspace.workspaceFolders![0].uri.fsPath; // gets the path of the first workspace folder
+		// 	const filePath = vscode.Uri.file(wsPath + '/hello/world.md');
+
+		// 	// wsedit.createFile(file_uri);
+		// 	// wsedit.insert(file_uri, new vscode.Position(0,0), "hehehehehe");
+		// 	wsedit.createFile(filePath, { ignoreIfExists: true });
+		// 	wsedit.insert(filePath, new vscode.Position(0, 0), "fuck you bitch");
+		// 	vscode.workspace.applyEdit(wsedit);
+
+		// }
 
 		// const data = new Uint8Array(Buffer.from('Hello Node.js'));
 
@@ -87,10 +147,20 @@ async function register(context : vscode.ExtensionContext){
 
 		// 	vscode.workspace.fs.writeFile(vscode.Uri.parse(path!), data);
 		// }
-		
+
 
 	})
+
+	context.subscriptions.push(OpenCommand);
+
+	let template = vscode.commands.registerCommand(TemplateCommand, () => {
+		var file_content = vscode.workspace.fs.readFile(vscode.Uri.parse('/src/template/service.txt'));
+		console.log(file_content);
+	});
+
+	context.subscriptions.push(template);
+
 }
 
 // this method is called when your extension is deactivated
-export function deactivate() {}
+export function deactivate() { }
