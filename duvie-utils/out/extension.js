@@ -13,12 +13,16 @@ exports.deactivate = exports.activate = void 0;
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 // import { url } from 'inspector';
+// import fs,{ fstat } from 'fs';
 const vscode = require("vscode");
-const component_1 = require("./template/component");
+const config_1 = require("./template/config");
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 const OpenCommandName = 'duvie-utils.open';
 const TemplateCommand = 'duvie-utils.template';
+const wsedit = new vscode.WorkspaceEdit();
+const wsPath = vscode.workspace.workspaceFolders[0].uri.fsPath; // gets the path of the first workspace folder
+let extensionConfig = undefined;
 function activate(context) {
     // Use the console to output diagnostic information (console.log) and errors (console.error)
     // This line of code will only be executed once when your extension is activated
@@ -32,11 +36,37 @@ function activate(context) {
         vscode.window.showInformationMessage('Hello World from duvie-utils!');
     });
     context.subscriptions.push(disposable);
+    extensionConfig = undefined; // clear config
     /** @register  */
     register(context);
 }
 exports.activate = activate;
-const options_list = ["component", "module", "serivce", "other"];
+function config(context) {
+    return __awaiter(this, void 0, void 0, function* () {
+        debugger;
+        const default_config_path = "/extension-config/config.json";
+        if (FileExists(default_config_path)) {
+            vscode.window.showInformationMessage("Use project default config");
+            var a = GetFile(default_config_path);
+            try {
+                extensionConfig = JSON.parse(a.toLocaleString());
+                console.log(extensionConfig);
+            }
+            catch (e) {
+                vscode.window.showErrorMessage("error");
+            }
+        }
+        else {
+            vscode.window.showInformationMessage("Default config not exists");
+            vscode.window.showQuickPick(["Create config file", "Exit"]).then((value) => {
+                if (value == "Create config file") {
+                    CreateFile(default_config_path, config_1.default);
+                }
+            });
+        }
+    });
+}
+const options_list = ["component", "module", "serivce", "other", "permission"];
 function GetPath() {
     return __awaiter(this, void 0, void 0, function* () {
         return yield vscode.window.showInputBox({
@@ -46,18 +76,28 @@ function GetPath() {
         });
     });
 }
-function CreateFile(path, templatePath) {
+function GetFile(path) {
     return __awaiter(this, void 0, void 0, function* () {
-        const wsedit = new vscode.WorkspaceEdit();
-        if (wsedit.has(vscode.Uri.parse(path))) {
+        return vscode.workspace.fs.readFile(vscode.Uri.parse(wsPath + path));
+    });
+}
+function FileExists(path) {
+    return __awaiter(this, void 0, void 0, function* () {
+        console.log(path);
+        return wsedit.has(vscode.Uri.parse(wsPath + path));
+    });
+}
+function CreateFile(path, Content) {
+    return __awaiter(this, void 0, void 0, function* () {
+        if (FileExists(path)) {
             vscode.window.showInformationMessage('File exists');
             return false;
         }
         else {
-            const wsPath = vscode.workspace.workspaceFolders[0].uri.fsPath; // gets the path of the first workspace folder
+            console.log(wsPath);
             const filePath = vscode.Uri.file(wsPath + path);
             wsedit.createFile(filePath, { ignoreIfExists: true });
-            wsedit.insert(filePath, new vscode.Position(0, 0), component_1.default);
+            wsedit.insert(filePath, new vscode.Position(0, 0), Content);
             vscode.workspace.applyEdit(wsedit);
         }
     });
@@ -65,6 +105,13 @@ function CreateFile(path, templatePath) {
 function register(context) {
     return __awaiter(this, void 0, void 0, function* () {
         let OpenCommand = vscode.commands.registerCommand(OpenCommandName, () => __awaiter(this, void 0, void 0, function* () {
+            if (vscode.workspace.workspaceFolders == undefined) {
+                vscode.window.showErrorMessage("No workspace're open, open one and try again");
+                return;
+            }
+            config(context);
+            if (extensionConfig == undefined)
+                return;
             // var file_name = await vscode.window.showInputBox(
             // 	{ prompt: 'Điền tên file định tạo', placeHolder: 'ví dụ : lead.insert.tsx', value: '' }
             // );

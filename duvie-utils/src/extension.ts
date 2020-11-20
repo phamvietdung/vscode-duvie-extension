@@ -1,9 +1,12 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 // import { url } from 'inspector';
+// import fs,{ fstat } from 'fs';
 import * as vscode from 'vscode';
 
 import ComponentTemplate from './template/component';
+
+import Config from './template/config';
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
@@ -11,6 +14,12 @@ import ComponentTemplate from './template/component';
 const OpenCommandName = 'duvie-utils.open';
 
 const TemplateCommand = 'duvie-utils.template';
+
+const wsedit : vscode.WorkspaceEdit = new vscode.WorkspaceEdit();
+
+const wsPath = vscode.workspace.workspaceFolders![0].uri.fsPath; // gets the path of the first workspace folder
+
+let extensionConfig : object | undefined = undefined;
 
 export function activate(context: vscode.ExtensionContext) {
 
@@ -30,14 +39,48 @@ export function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(disposable);
 
+	extensionConfig = undefined; // clear config
+
 	/** @register  */
 	register(context);
 
+
+
 }
 
-type TOptions = 'component' | 'serivce' | 'module' | 'other';
 
-const options_list: TOptions[] = ["component", "module", "serivce", "other"];
+
+async function config(context: vscode.ExtensionContext) {
+
+	debugger;
+
+	const default_config_path = "/extension-config/config.json";
+	if (FileExists(default_config_path)) {
+		vscode.window.showInformationMessage("Use project default config");
+		var a = GetFile(default_config_path);
+
+		try{
+			extensionConfig = JSON.parse(a.toLocaleString());
+			console.log(extensionConfig)
+		}catch(e){
+			vscode.window.showErrorMessage("error");
+		}
+
+	}else{
+		vscode.window.showInformationMessage("Default config not exists");
+		vscode.window.showQuickPick(["Create config file", "Exit"]).then((value : any) => {
+			if(value == "Create config file"){
+				CreateFile(default_config_path, Config);
+				
+			}
+		});
+	}
+}
+
+
+type TOptions = 'component' | 'serivce' | 'module' | 'other' | 'permission';
+
+const options_list: TOptions[] = ["component", "module", "serivce", "other", "permission"];
 
 async function GetPath() {
 	return await vscode.window.showInputBox(
@@ -49,25 +92,48 @@ async function GetPath() {
 	)
 }
 
-async function CreateFile(path: string, templatePath : string) {
-	const wsedit = new vscode.WorkspaceEdit();
+async function GetFile(path: string){
+	return vscode.workspace.fs.readFile(vscode.Uri.parse(wsPath + path));
+}
 
-	if (wsedit.has(vscode.Uri.parse(path!))) {
+async function FileExists(path: string) {
+	console.log(path);
+	return wsedit.has(vscode.Uri.parse(wsPath + path!))
+}
+
+async function CreateFile(path: string, Content: string) {
+	
+
+	if (FileExists(path)) {
 		vscode.window.showInformationMessage('File exists');
 		return false;
 	} else {
+		console.log(wsPath);
 
-		const wsPath = vscode.workspace.workspaceFolders![0].uri.fsPath; // gets the path of the first workspace folder
 		const filePath = vscode.Uri.file(wsPath + path);
 
 		wsedit.createFile(filePath, { ignoreIfExists: true });
-		wsedit.insert(filePath, new vscode.Position(0, 0), ComponentTemplate);
+		wsedit.insert(filePath, new vscode.Position(0, 0), Content);
 		vscode.workspace.applyEdit(wsedit);
 	}
 }
 
 async function register(context: vscode.ExtensionContext) {
+
+	
 	let OpenCommand = vscode.commands.registerCommand(OpenCommandName, async () => {
+
+		if(vscode.workspace.workspaceFolders == undefined){
+			vscode.window.showErrorMessage("No workspace're open, open one and try again");
+			return;
+		}
+
+		config(context);
+
+		if(extensionConfig == undefined)
+			return;
+
+
 		// var file_name = await vscode.window.showInputBox(
 		// 	{ prompt: 'Điền tên file định tạo', placeHolder: 'ví dụ : lead.insert.tsx', value: '' }
 		// );
@@ -82,7 +148,7 @@ async function register(context: vscode.ExtensionContext) {
 
 			/** @component */
 			if (vl == options_list[0]) {
-				CreateFile(path!,"a");
+				CreateFile(path!, "a");
 			}
 
 			/** @serivce */
